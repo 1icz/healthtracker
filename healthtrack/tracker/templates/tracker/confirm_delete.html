@@ -1,0 +1,14 @@
+{% extends 'tracker/base.html' %}
+
+{% block content %}
+<div class="d-flex flex-column justify-content-center h-100 text-center">
+    <h4>Удалить запись?</h4>
+    <p class="text-muted">Вы уверены, что хотите удалить измерение от {{ measurement.date|date:"d.m.Y" }}?</p>
+
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger w-100 mb-2">Да, удалить</button>
+        <a href="{% url 'index' %}" class="btn btn-secondary w-100">Отмена</a>
+    </form>
+</div>
+{% endblock %}

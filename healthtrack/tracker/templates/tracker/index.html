@@ -1,0 +1,217 @@
+{% extends 'tracker/base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="date-badge {% if selected_day %}active{% endif %}" data-bs-toggle="modal" data-bs-target="#dateModal">
+        {% if selected_day %}
+            {{ selected_day }}
+        {% elif start_date and end_date %}
+            {{ start_date }} — {{ end_date }}
+        {% elif start_date %}
+            С {{ start_date }}
+        {% elif end_date %}
+            По {{ end_date }}
+        {% elif latest %}
+            {{ latest.date|date:"d.m.Y" }}
+        {% else %}
+            Нет данных
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        {% if selected_day or start_date or end_date %}
+            <a href="{% url 'index' %}" class="btn btn-sm btn-outline-secondary" title="Сбросить фильтр">✕</a>
+        {% endif %}
+        <a href="{% url 'add_measurement' %}" class="btn btn-sm btn-dark">+</a>
+    </div>
+</div>
+
+{% if latest %}
+    {% with pulse_danger=latest.pulse|default:0 %}
+    <div class="row-grid">
+        <div>
+            <div class="metric-label">Пульс</div>
+            <div class="value-box {% if pulse_danger > 100 or pulse_danger < 60 %}danger{% else %}success{% endif %}">
+                {{ latest.pulse }}
+            </div>
+        </div>
+        <div class="message-box {% if pulse_danger > 100 or pulse_danger < 60 %}danger{% else %}success{% endif %}">
+            {% if pulse_danger > 100 %}
+                Тахикардия, которая указывает на сильную нагрузку на организм или может быть признаком острого заболевания. Обратитесь к врачу!
+            {% elif pulse_danger < 60 %}
+                Брадикардия. Пульс ниже нормы. Рекомендуется консультация специалиста.
+            {% else %}
+                Пульс в норме.
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row-grid">
+        <div>
+            <div class="metric-label">Давление</div>
+            {% with sys=latest.systolic dia=latest.diastolic %}
+            <div class="value-box {% if sys >= 140 or dia >= 90 %}danger{% else %}success{% endif %}">
+                {{ sys }} / {{ dia }}
+            </div>
+            {% endwith %}
+        </div>
+        <div class="message-box {% if latest.systolic >= 140 or latest.diastolic >= 90 %}danger{% else %}success{% endif %}">
+            {% if latest.systolic >= 140 or latest.diastolic >= 90 %}
+                Гипертония. Давление повышено. Обратитесь к врачу!
+            {% else %}
+                Давление в норме
+            {% endif %}
+        </div>
+    </div>
+    {% endwith %}
+
+    <div class="note-section">
+        <div class="note-title">Заметка</div>
+        <div class="note-box">{{ latest.note|default:"Заметок нет" }}</div>
+    </div>
+
+    <div class="mt-4">
+        <h6 class="text-muted small mb-3">История измерений (нажмите на запись, чтобы просмотреть):</h6>
+        <ul class="history-list">
+            {% for m in measurements %}
+                <li class="history-item {% if selected_day == m.date|date:'Y-m-d' %}active{% endif %}">
+                    <a href="?day={{ m.date|date:'Y-m-d' }}" class="history-link">
+                        {{ m.date|date:"d.m.Y" }} — {{ m.systolic }}/{{ m.diastolic }}, пульс {{ m.pulse }}
+                    </a>
+                    <div class="history-actions">
+                        <a href="{% url 'edit_measurement' m.pk %}" class="edit" title="Редактировать">✎</a>
+                        <a href="{% url 'delete_measurement' m.pk %}" class="delete" title="Удалить">✖</a>
+                    </div>
+                </li>
+            {% empty %}
+                <li class="history-item text-muted">Нет записей за выбранный период.</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% else %}
+    <p class="text-center mt-5 text-muted">Добавьте первое измерение, чтобы увидеть статистику.</p>
+{% endif %}
+
+<div class="graph-section">
+    <div class="graph-header">
+        <div class="graph-title dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            График по дням
+        </div>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item period-select" href="#" data-period="days">По дням</a></li>
+            <li><a class="dropdown-item period-select" href="#" data-period="months">По месяцам</a></li>
+            <li><a class="dropdown-item period-select" href="#" data-period="years">По годам</a></li>
+        </ul>
+    </div>
+
+    <div class="graph-container">
+        <canvas id="healthChart"></canvas>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color pulse"></div>
+            <span>Пульс</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color pressure"></div>
+            <span>Давление</span>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="dateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Выбор даты</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="get" action="{% url 'index' %}">
+                <div class="modal-body">
+                    <h6 class="small text-muted mb-2">Конкретный день</h6>
+                    <input type="date" name="day" class="form-control mb-3" value="{{ selected_day|default:'' }}">
+
+                    <h6 class="small text-muted mb-2">Или диапазон</h6>
+                    <label class="form-label">Начало периода</label>
+                    <input type="date" name="start_date" class="form-control mb-3" value="{{ start_date|default:'' }}">
+                    <label class="form-label">Конец периода</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date|default:'' }}">
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'index' %}" class="btn btn-secondary">Сбросить</a>
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let chartInstance = null;
+
+    function loadChart(period = 'days') {
+        fetch(`/api/chart-data/?period=${period}`)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('healthChart').getContext('2d');
+
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            {
+                                label: 'Пульс',
+                                data: data.pulse,
+                                borderColor: '#4cd964',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: 3,
+                            },
+                            {
+                                label: 'Верхнее давление',
+                                data: data.systolic,
+                                borderColor: '#ff4d4d',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: 3,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { display: false },
+                            y: { display: false }
+                        }
+                    }
+                });
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadChart('days');
+
+        document.querySelectorAll('.period-select').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const period = this.dataset.period;
+                const titles = { 'days': 'График по дням', 'months': 'График по месяцам', 'years': 'График по годам' };
+                document.querySelector('.graph-title').textContent = titles[period];
+                loadChart(period);
+            });
+        });
+    });
+</script>
+{% endblock %}

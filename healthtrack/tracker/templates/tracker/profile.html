@@ -1,0 +1,30 @@
+{% extends 'tracker/base.html' %}
+
+{% block content %}
+<h3 class="text-center mb-4">Мой профиль</h3>
+
+<div class="text-center mb-4">
+    <div class="avatar-large"></div>
+    <p class="mt-2 mb-0 fw-bold">{{ user.username }}</p>
+    <p class="text-muted small">Дата регистрации: {{ user.date_joined|date:"d.m.Y" }}</p>
+</div>
+
+<form method="post" class="w-100">
+    {% csrf_token %}
+    {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <div class="text-danger small">{{ field.errors }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary w-100">Сохранить изменения</button>
+    <a href="{% url 'index' %}" class="btn btn-secondary w-100 mt-2">Назад</a>
+</form>
+
+<div class="mt-4 text-center">
+    <a href="{% url 'password_change' %}" class="text-secondary small">Изменить пароль</a>
+</div>
+{% endblock %}
